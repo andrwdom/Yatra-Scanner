@@ -50,9 +50,9 @@ export async function verifyTicketById(ticketId, currentDay) {
       };
     }
 
-    // Call the atomic verification function
-    // Single ticket type - no day parameter needed
-    // This is where the magic happens - the Postgres function handles locking
+    // Call the atomic verification function from Supabase
+    // This function checks ticket_status and updates it if valid
+    // Note: The database function should check ticket_status and set it to 'used' when verified
     const { data, error } = await supabase.rpc('verify_and_mark_ticket', {
       p_ticket_id: ticketId,
     });
@@ -66,11 +66,13 @@ export async function verifyTicketById(ticketId, currentDay) {
       };
     }
 
+    // Return the result from the database function
+    // data.allowed = true if ticket is valid (ticket_status = 'valid')
+    // data.allowed = false if ticket is already used (ticket_status = 'used')
     return {
-      allowed: data.allowed,
-      reason: data.reason,
-      message: data.message,
-      ticketType: data.ticket_type,
+      allowed: data.allowed || false,
+      reason: data.reason || VerificationResult.ERROR,
+      message: data.message || 'Verification failed',
       name: data.name,
     };
   } catch (err) {
@@ -101,7 +103,7 @@ export async function verifyTicketById(ticketId, currentDay) {
  */
 export async function verifyTicketByCode(code, currentDay) {
   try {
-    // Validate code format
+    // Validate code format - must be exactly 6 digits
     if (!/^\d{6}$/.test(code)) {
       return {
         allowed: false,
@@ -110,10 +112,15 @@ export async function verifyTicketByCode(code, currentDay) {
       };
     }
 
-    // First, get the ticket ID by code
-    const { data: ticketId, error: lookupError } = await supabase.rpc('get_ticket_by_code', {
-      p_code: code,
-    });
+    // Look up ticket by 6-digit code in the tickets table
+    // Query the six_digit_code column directly
+    const { data: ticketData, error: lookupError } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('six_digit_code', code)
+      .single();
+    
+    const ticketId = ticketData?.id;
 
     if (lookupError) {
       console.error('Lookup error:', lookupError);
@@ -124,6 +131,7 @@ export async function verifyTicketByCode(code, currentDay) {
       };
     }
 
+    // If no ticket found, return invalid
     if (!ticketId) {
       return {
         allowed: false,
@@ -132,7 +140,8 @@ export async function verifyTicketByCode(code, currentDay) {
       };
     }
 
-    // Now verify using the ticket ID
+    // Now verify the ticket using its UUID
+    // This will check ticket_status and update it if valid
     return verifyTicketById(ticketId, currentDay);
   } catch (err) {
     console.error('Unexpected error:', err);
@@ -150,11 +159,11 @@ export async function verifyTicketByCode(code, currentDay) {
  * @param {string} query - Search query (email or code)
  * @returns {Promise<Array<{
  *   id: string,
- *   code_6_digit: string,
+ *   six_digit_code: string,
  *   email: string,
  *   name: string,
- *   ticket_type: string,
- *   last_used_at: string | null
+ *   college: string,
+ *   ticket_status: string
  * }>>}
  */
 export async function searchTickets(query) {
@@ -163,18 +172,74 @@ export async function searchTickets(query) {
       return [];
     }
 
-    const { data, error } = await supabase.rpc('search_tickets', {
-      p_query: query.trim(),
+    const searchQuery = query.trim();
+    console.log('🔍 [searchTickets] Searching for:', searchQuery);
+
+    // Use direct query to match actual database schema
+    // Try different column combinations based on what exists in the database
+    let data, error;
+    
+    // First try with six_digit_code (new schema) - without registration_id
+    const query1 = supabase
+      .from('tickets')
+      .select('id, email, name, college, six_digit_code, ticket_status')
+      .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,six_digit_code.eq.${searchQuery},college.ilike.%${searchQuery}%`)
+      .limit(20);
+    
+    const result1 = await query1;
+    data = result1.data;
+    error = result1.error;
+
+    // If error suggests column doesn't exist, try with code_6_digit (old schema)
+    if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
+      console.log('⚠️ [searchTickets] Trying with code_6_digit (old schema)...');
+      const query2 = supabase
+        .from('tickets')
+        .select('id, email, name, college, code_6_digit, ticket_status')
+        .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,code_6_digit.eq.${searchQuery},college.ilike.%${searchQuery}%`)
+        .limit(20);
+      
+      const result2 = await query2;
+      data = result2.data;
+      error = result2.error;
+      
+      // Map code_6_digit to six_digit_code for consistency
+      if (data) {
+        data = data.map(ticket => ({
+          ...ticket,
+          six_digit_code: ticket.code_6_digit || ticket.six_digit_code
+        }));
+      }
+    }
+
+    console.log('🔍 [searchTickets] Query result:', { 
+      data, 
+      error, 
+      dataLength: data?.length,
+      query: searchQuery,
+      errorMessage: error?.message 
     });
 
     if (error) {
-      console.error('Search error:', error);
+      console.error('❌ [searchTickets] Query Error:', error);
+      console.error('❌ [searchTickets] Error details:', JSON.stringify(error, null, 2));
+      
+      // If it's an RLS error, provide helpful message
+      if (error.message?.includes('row-level security') || error.message?.includes('policy')) {
+        console.error('🚨 [searchTickets] RLS Policy Error - Need to allow anon SELECT on tickets table');
+      }
+      
       return [];
     }
 
+    console.log('✅ [searchTickets] Found tickets:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('✅ [searchTickets] First result:', data[0]);
+    }
     return data || [];
   } catch (err) {
-    console.error('Unexpected error:', err);
+    console.error('❌ [searchTickets] Unexpected error:', err);
+    console.error('❌ [searchTickets] Error stack:', err.stack);
     return [];
   }
 }

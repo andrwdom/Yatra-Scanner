@@ -207,17 +207,21 @@ export default function AdminOverride({ onClose, onResult }) {
                     className="admin-ticket-result"
                     onClick={() => handleSelectTicket(ticket)}
                   >
-                    <div className="admin-ticket-code">{ticket.code_6_digit}</div>
+                    <div className="admin-ticket-code">{ticket.six_digit_code}</div>
                     <div className="admin-ticket-info">
                       <div className="admin-ticket-name">{ticket.name}</div>
                       <div className="admin-ticket-email">{ticket.email}</div>
-                      <div className="admin-ticket-type">{ticket.ticket_type}</div>
+                      {ticket.college && (
+                        <div className="admin-ticket-college">{ticket.college}</div>
+                      )}
                     </div>
                     <div className="admin-ticket-status">
-                      <span className={ticket.last_used_at ? 'used' : 'unused'}>
-                        {ticket.last_used_at 
-                          ? `Used: ${new Date(ticket.last_used_at).toLocaleDateString()}`
-                          : 'Never used'}
+                      <span className={ticket.ticket_status === 'used' ? 'used' : 'unused'}>
+                        {ticket.ticket_status === 'used' 
+                          ? 'Used'
+                          : ticket.ticket_status === 'valid'
+                          ? 'Valid'
+                          : ticket.ticket_status || 'Unknown'}
                       </span>
                     </div>
                   </div>
@@ -238,7 +242,7 @@ export default function AdminOverride({ onClose, onResult }) {
               <h3>Ticket Details</h3>
               <div className="admin-detail-row">
                 <span className="label">Code:</span>
-                <span className="value">{selectedTicket.code_6_digit}</span>
+                <span className="value">{selectedTicket.six_digit_code}</span>
               </div>
               <div className="admin-detail-row">
                 <span className="label">Name:</span>
@@ -248,18 +252,24 @@ export default function AdminOverride({ onClose, onResult }) {
                 <span className="label">Email:</span>
                 <span className="value">{selectedTicket.email}</span>
               </div>
+              {selectedTicket.college && (
+                <div className="admin-detail-row">
+                  <span className="label">College:</span>
+                  <span className="value">{selectedTicket.college}</span>
+                </div>
+              )}
               <div className="admin-detail-row">
-                <span className="label">Type:</span>
-                <span className="value">{selectedTicket.ticket_type}</span>
-              </div>
-              <div className="admin-detail-row">
-                <span className="label">Last Used:</span>
-                <span className={`value ${selectedTicket.last_used_at ? 'used' : 'unused'}`}>
-                  {selectedTicket.last_used_at 
-                    ? new Date(selectedTicket.last_used_at).toLocaleString()
-                    : 'Never used'}
+                <span className="label">Status:</span>
+                <span className={`value ${selectedTicket.ticket_status === 'used' ? 'used' : 'unused'}`}>
+                  {selectedTicket.ticket_status || 'Unknown'}
                 </span>
               </div>
+              {selectedTicket.registration_id && (
+                <div className="admin-detail-row">
+                  <span className="label">Registration ID:</span>
+                  <span className="value">{selectedTicket.registration_id}</span>
+                </div>
+              )}
             </div>
 
             {/* Override actions */}

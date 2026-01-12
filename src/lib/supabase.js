@@ -3,24 +3,42 @@
  * 
  * This module initializes the Supabase client for database operations.
  * All ticket verification calls go through this client.
+ * 
+ * CRITICAL: Uses ONLY environment variables from .env file
+ * NO hardcoded database URLs or keys
  */
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Read ONLY from environment variables - NO hardcoded values, NO old database references
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY)?.trim();
+
+// DEBUG: Show what we're using (from .env file)
+console.log('🔍 Supabase Configuration (from .env file):');
+console.log('   VITE_SUPABASE_URL:', supabaseUrl);
+console.log('   VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY:', import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ? 'SET' : 'NOT SET');
+console.log('   VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET');
+console.log('   Using key:', supabaseAnonKey ? supabaseAnonKey.substring(0, 30) + '...' : 'MISSING');
 
 // Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('⚠️ Missing Supabase environment variables!');
-  console.error('Please create a .env file in the root directory.');
-  console.error('See env.example or SETUP_INSTRUCTIONS.md for details.');
+  console.error('❌ Missing Supabase environment variables!');
+  console.error('   Please check your .env file in the project root');
+  console.error('   Required: VITE_SUPABASE_URL and either VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
+  throw new Error('Missing required Supabase environment variables. Check your .env file.');
 }
 
-// Use placeholder values if not configured (allows UI to load)
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-key', 
+const finalUrl = supabaseUrl;
+const finalKey = supabaseAnonKey;
+
+console.log('✅ Supabase Client Created:');
+console.log('   Connecting to:', finalUrl);
+
+// Create client
+const client = createClient(
+  finalUrl, 
+  finalKey, 
   {
     auth: {
       // We're not using Supabase Auth - just the database
@@ -29,6 +47,30 @@ export const supabase = createClient(
     },
   }
 );
+
+// Test connection on initialization
+(async () => {
+  try {
+    console.log('🔍 Testing Supabase connection to:', finalUrl);
+    const { data, error } = await client
+      .from('tickets')
+      .select('id, name, email')
+      .limit(1);
+    
+    if (error) {
+      console.error('❌ Connection test failed:', error);
+      console.error('   Error message:', error.message);
+      console.error('   Error details:', error);
+    } else {
+      console.log('✅ Connection test successful!');
+      console.log('   Sample data:', data);
+    }
+  } catch (err) {
+    console.error('❌ Connection test error:', err);
+  }
+})();
+
+export const supabase = client;
 
 /**
  * Get default event day from environment (can be overridden in UI)

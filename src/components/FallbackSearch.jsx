@@ -24,7 +24,9 @@ export default function FallbackSearch({ onResult }) {
     if (query.length < 3) return;
 
     setSearching(true);
+    console.log('🔍 FallbackSearch: Searching for:', query);
     const tickets = await searchTickets(query);
+    console.log('🔍 FallbackSearch: Results:', tickets);
     setResults(tickets);
     setSearching(false);
   };
@@ -38,19 +40,19 @@ export default function FallbackSearch({ onResult }) {
   };
 
   const getStatusBadge = (ticket) => {
-    const { last_used_at } = ticket;
-
-    // Check if ticket was used within last 14 hours
-    if (last_used_at) {
-      const lastUsed = new Date(last_used_at);
-      const hoursSinceUse = (Date.now() - lastUsed.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursSinceUse < 14) {
-        return { text: 'Recently Used', class: 'badge-error' };
-      }
+    // Use ticket_status from database
+    const status = ticket.ticket_status?.toLowerCase();
+    
+    if (status === 'used') {
+      return { text: 'Used', class: 'badge-error' };
+    } else if (status === 'valid') {
+      return { text: 'Valid', class: 'badge-success' };
+    } else if (status === 'cancelled') {
+      return { text: 'Cancelled', class: 'badge-error' };
+    } else {
+      // Default to valid if status is unknown
+      return { text: 'Valid', class: 'badge-success' };
     }
-
-    return { text: 'Valid', class: 'badge-success' };
   };
 
   return (
@@ -60,7 +62,7 @@ export default function FallbackSearch({ onResult }) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by email or code..."
+          placeholder="Search by email, phone, code, or name..."
           className="search-input"
           autoComplete="off"
         />
@@ -84,7 +86,7 @@ export default function FallbackSearch({ onResult }) {
             return (
               <div key={ticket.id} className="ticket-card">
                 <div className="ticket-header">
-                  <span className="ticket-code">{ticket.code_6_digit}</span>
+                  <span className="ticket-code">{ticket.six_digit_code}</span>
                   <span className={`ticket-badge ${status.class}`}>
                     {status.text}
                   </span>
@@ -93,14 +95,19 @@ export default function FallbackSearch({ onResult }) {
                 <div className="ticket-details">
                   {ticket.name && <p className="ticket-name">{ticket.name}</p>}
                   {ticket.email && <p className="ticket-email">{ticket.email}</p>}
-                  <p className="ticket-type">{ticket.ticket_type} Ticket</p>
+                  {ticket.college && <p className="ticket-college">{ticket.college}</p>}
+                  {ticket.ticket_status && (
+                    <p className="ticket-status">Status: {ticket.ticket_status}</p>
+                  )}
                 </div>
 
                 <div className="ticket-usage">
-                  <span className={ticket.last_used_at ? 'used' : 'unused'}>
-                    {ticket.last_used_at 
-                      ? `Last used: ${new Date(ticket.last_used_at).toLocaleString()}`
-                      : 'Never used'}
+                  <span className={ticket.ticket_status === 'used' ? 'used' : 'unused'}>
+                    {ticket.ticket_status === 'used' 
+                      ? 'Used'
+                      : ticket.ticket_status === 'valid' 
+                      ? 'Valid - Never used'
+                      : ticket.ticket_status || 'Unknown status'}
                   </span>
                 </div>
 
