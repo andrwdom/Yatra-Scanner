@@ -16,7 +16,7 @@ import { supabase } from './supabase';
  * Admin action to force allow entry for a ticket
  * 
  * @param {string} ticketId - UUID of ticket
- * @param {number} day - 1 or 2
+ * @param {number} day - Optional day parameter (kept for compatibility, not used)
  * @param {string} reason - Admin's reason for override
  * @param {string} adminIdentifier - Admin name/ID for audit
  * @returns {Promise<{success: boolean, message: string}>}
@@ -32,7 +32,6 @@ export async function adminForceAllow(ticketId, day, reason, adminIdentifier) {
 
     const { data, error } = await supabase.rpc('admin_force_allow', {
       p_ticket_id: ticketId,
-      p_day: day,
       p_reason: reason.trim(),
       p_admin_identifier: adminIdentifier.trim()
     });
@@ -59,7 +58,7 @@ export async function adminForceAllow(ticketId, day, reason, adminIdentifier) {
  * Admin action to reset entry for a ticket
  * 
  * @param {string} ticketId - UUID of ticket
- * @param {number} day - 1 or 2
+ * @param {number} day - Optional day parameter (kept for compatibility, not used)
  * @param {string} reason - Admin's reason for reset
  * @param {string} adminIdentifier - Admin name/ID for audit
  * @returns {Promise<{success: boolean, message: string}>}
@@ -75,7 +74,6 @@ export async function adminResetEntry(ticketId, day, reason, adminIdentifier) {
 
     const { data, error } = await supabase.rpc('admin_reset_entry', {
       p_ticket_id: ticketId,
-      p_day: day,
       p_reason: reason.trim(),
       p_admin_identifier: adminIdentifier.trim()
     });

@@ -17,8 +17,7 @@ import { supabase } from './supabase';
  */
 export const VerificationResult = {
   VALID: 'VALID',           // Entry allowed
-  ALREADY_USED: 'ALREADY_USED', // Ticket already scanned
-  WRONG_DAY: 'WRONG_DAY',   // Ticket not valid for current day
+  ALREADY_USED: 'ALREADY_USED', // Ticket already scanned (within 14-hour cooldown)
   INVALID_TICKET: 'INVALID_TICKET', // Ticket not found
   ERROR: 'ERROR',           // System error
 };
@@ -26,10 +25,11 @@ export const VerificationResult = {
 /**
  * Verify a ticket by UUID (from QR code)
  * 
- * CRITICAL: Accepts explicit day parameter (not auto-detected)
+ * Single ticket type valid for both days.
+ * Auto-refreshes after 14 hours (12-16 hour range midpoint).
  * 
  * @param {string} ticketId - UUID from QR code
- * @param {number} currentDay - Explicitly selected day (1 or 2)
+ * @param {number} currentDay - Optional day parameter (kept for compatibility, not used in verification)
  * @returns {Promise<{
  *   allowed: boolean,
  *   reason: string,
@@ -50,20 +50,11 @@ export async function verifyTicketById(ticketId, currentDay) {
       };
     }
 
-    // Validate day parameter
-    if (currentDay !== 1 && currentDay !== 2) {
-      return {
-        allowed: false,
-        reason: VerificationResult.ERROR,
-        message: 'Invalid day selection',
-      };
-    }
-
     // Call the atomic verification function
+    // Single ticket type - no day parameter needed
     // This is where the magic happens - the Postgres function handles locking
     const { data, error } = await supabase.rpc('verify_and_mark_ticket', {
       p_ticket_id: ticketId,
-      p_current_day: currentDay,
     });
 
     if (error) {
@@ -95,10 +86,11 @@ export async function verifyTicketById(ticketId, currentDay) {
 /**
  * Verify a ticket by 6-digit code (manual entry)
  * 
- * CRITICAL: Accepts explicit day parameter (not auto-detected)
+ * Single ticket type valid for both days.
+ * Auto-refreshes after 14 hours (12-16 hour range midpoint).
  * 
  * @param {string} code - 6-digit code
- * @param {number} currentDay - Explicitly selected day (1 or 2)
+ * @param {number} currentDay - Optional day parameter (kept for compatibility, not used in verification)
  * @returns {Promise<{
  *   allowed: boolean,
  *   reason: string,
@@ -140,7 +132,7 @@ export async function verifyTicketByCode(code, currentDay) {
       };
     }
 
-    // Now verify using the ticket ID with explicit day
+    // Now verify using the ticket ID
     return verifyTicketById(ticketId, currentDay);
   } catch (err) {
     console.error('Unexpected error:', err);
@@ -162,8 +154,7 @@ export async function verifyTicketByCode(code, currentDay) {
  *   email: string,
  *   name: string,
  *   ticket_type: string,
- *   day1_used: boolean,
- *   day2_used: boolean
+ *   last_used_at: string | null
  * }>>}
  */
 export async function searchTickets(query) {

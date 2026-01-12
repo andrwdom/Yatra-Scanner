@@ -15,10 +15,8 @@ import QRScanner from './QRScanner';
 import ManualEntry from './ManualEntry';
 import FallbackSearch from './FallbackSearch';
 import ResultScreen from './ResultScreen';
-import DaySelector from './DaySelector';
 import AdminOverride from './AdminOverride';
 import { verifyTicketById, verifyTicketByCode } from '../lib/ticketVerification';
-import { getDefaultDay } from '../lib/supabase';
 import { logout } from './PasswordGate';
 
 const MODES = {
@@ -28,9 +26,6 @@ const MODES = {
 };
 
 export default function Scanner({ onLogout }) {
-  // Explicit day selection (not auto-detected)
-  const [currentDay, setCurrentDay] = useState(getDefaultDay());
-  
   const [mode, setMode] = useState(MODES.QR);
   const [result, setResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
@@ -41,22 +36,22 @@ export default function Scanner({ onLogout }) {
     if (verifying) return; // Prevent double-scan
     
     setVerifying(true);
-    // Pass explicit day selection to verification
-    const verificationResult = await verifyTicketById(scannedText, currentDay);
+    // Single ticket type - no day parameter needed
+    const verificationResult = await verifyTicketById(scannedText);
     setResult(verificationResult);
     setVerifying(false);
-  }, [verifying, currentDay]);
+  }, [verifying]);
 
   // Handle manual code entry
   const handleManualEntry = useCallback(async (code) => {
     if (verifying) return;
     
     setVerifying(true);
-    // Pass explicit day selection to verification
-    const verificationResult = await verifyTicketByCode(code, currentDay);
+    // Single ticket type - no day parameter needed
+    const verificationResult = await verifyTicketByCode(code);
     setResult(verificationResult);
     setVerifying(false);
-  }, [verifying, currentDay]);
+  }, [verifying]);
 
   // Handle search result verification
   const handleSearchResult = useCallback((verificationResult) => {
@@ -74,13 +69,6 @@ export default function Scanner({ onLogout }) {
     setMode(MODES.SEARCH);
   }, []);
 
-  // Handle day change
-  const handleDayChange = (newDay) => {
-    if (confirm(`Switch to DAY ${newDay}?\n\nThis will affect all ticket verifications.`)) {
-      setCurrentDay(newDay);
-    }
-  };
-
   // Handle logout
   const handleLogout = () => {
     logout();
@@ -91,7 +79,6 @@ export default function Scanner({ onLogout }) {
   if (showAdminOverride) {
     return (
       <AdminOverride
-        currentDay={currentDay}
         onClose={() => setShowAdminOverride(false)}
         onResult={setResult}
       />
@@ -103,7 +90,6 @@ export default function Scanner({ onLogout }) {
     return (
       <ResultScreen
         result={result}
-        currentDay={currentDay}
         onDismiss={handleDismiss}
         onManualSearch={handleSwitchToSearch}
       />
@@ -121,9 +107,6 @@ export default function Scanner({ onLogout }) {
           Logout
         </button>
       </header>
-
-      {/* Day Selector - CRITICAL: Explicit day selection */}
-      <DaySelector currentDay={currentDay} onDayChange={handleDayChange} />
 
       {/* Mode tabs */}
       <nav className="mode-tabs">
@@ -164,13 +147,13 @@ export default function Scanner({ onLogout }) {
         )}
 
         {mode === MODES.SEARCH && (
-          <FallbackSearch currentDay={currentDay} onResult={handleSearchResult} />
+          <FallbackSearch onResult={handleSearchResult} />
         )}
       </main>
 
       {/* Footer with admin override and status */}
       <footer className="scanner-footer">
-        <p>Ready to scan • Day {currentDay}</p>
+        <p>Ready to scan</p>
         <button 
           className="admin-override-trigger"
           onClick={() => setShowAdminOverride(true)}

@@ -14,7 +14,7 @@
 
 import { useEffect } from 'react';
 
-export default function ResultScreen({ result, currentDay, onDismiss, onManualSearch }) {
+export default function ResultScreen({ result, onDismiss, onManualSearch }) {
   const { allowed, reason, message, ticketType, name } = result;
 
   // Auto-dismiss after 4 seconds
@@ -33,8 +33,6 @@ export default function ResultScreen({ result, currentDay, onDismiss, onManualSe
         return 'ENTRY ALLOWED';
       case 'ALREADY_USED':
         return 'ALREADY USED';
-      case 'WRONG_DAY':
-        return 'WRONG DAY';
       case 'INVALID_TICKET':
         return 'INVALID TICKET';
       case 'ERROR':
@@ -77,9 +75,8 @@ export default function ResultScreen({ result, currentDay, onDismiss, onManualSe
           </p>
         )}
 
-        {/* Day and time info */}
+        {/* Time info */}
         <div className="result-info">
-          <p className="result-day">DAY {currentDay}</p>
           <p className="result-time">{currentTime}</p>
         </div>
 

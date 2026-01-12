@@ -15,7 +15,7 @@ import { searchTickets, getTicketStatus } from '../lib/ticketVerification';
 import { adminForceAllow, adminResetEntry, getOverrideLogs } from '../lib/adminOverride';
 import { getAdminPin } from '../lib/supabase';
 
-export default function AdminOverride({ currentDay, onClose, onResult }) {
+export default function AdminOverride({ onClose, onResult }) {
   const [pinVerified, setPinVerified] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -78,7 +78,7 @@ export default function AdminOverride({ currentDay, onClose, onResult }) {
       return;
     }
 
-    if (!confirm(`Force allow entry for ${selectedTicket.name} on DAY ${currentDay}?\n\nThis action will be logged.`)) {
+    if (!confirm(`Force allow entry for ${selectedTicket.name}?\n\nThis action will be logged.`)) {
       return;
     }
 
@@ -113,7 +113,7 @@ export default function AdminOverride({ currentDay, onClose, onResult }) {
       return;
     }
 
-    if (!confirm(`Reset entry for ${selectedTicket.name} on DAY ${currentDay}?\n\nThis action will be logged.`)) {
+    if (!confirm(`Reset entry for ${selectedTicket.name}?\n\nThis action will be logged.`)) {
       return;
     }
 
@@ -214,11 +214,10 @@ export default function AdminOverride({ currentDay, onClose, onResult }) {
                       <div className="admin-ticket-type">{ticket.ticket_type}</div>
                     </div>
                     <div className="admin-ticket-status">
-                      <span className={ticket.day1_used ? 'used' : 'unused'}>
-                        D1: {ticket.day1_used ? '✓' : '○'}
-                      </span>
-                      <span className={ticket.day2_used ? 'used' : 'unused'}>
-                        D2: {ticket.day2_used ? '✓' : '○'}
+                      <span className={ticket.last_used_at ? 'used' : 'unused'}>
+                        {ticket.last_used_at 
+                          ? `Used: ${new Date(ticket.last_used_at).toLocaleDateString()}`
+                          : 'Never used'}
                       </span>
                     </div>
                   </div>
@@ -254,22 +253,18 @@ export default function AdminOverride({ currentDay, onClose, onResult }) {
                 <span className="value">{selectedTicket.ticket_type}</span>
               </div>
               <div className="admin-detail-row">
-                <span className="label">Day 1 Used:</span>
-                <span className={`value ${selectedTicket.day1_used ? 'used' : 'unused'}`}>
-                  {selectedTicket.day1_used ? '✓ YES' : '○ NO'}
-                </span>
-              </div>
-              <div className="admin-detail-row">
-                <span className="label">Day 2 Used:</span>
-                <span className={`value ${selectedTicket.day2_used ? 'used' : 'unused'}`}>
-                  {selectedTicket.day2_used ? '✓ YES' : '○ NO'}
+                <span className="label">Last Used:</span>
+                <span className={`value ${selectedTicket.last_used_at ? 'used' : 'unused'}`}>
+                  {selectedTicket.last_used_at 
+                    ? new Date(selectedTicket.last_used_at).toLocaleString()
+                    : 'Never used'}
                 </span>
               </div>
             </div>
 
             {/* Override actions */}
             <div className="admin-actions-card">
-              <h3>Override Actions (Day {currentDay})</h3>
+              <h3>Override Actions</h3>
               
               <input
                 type="text"
@@ -293,14 +288,14 @@ export default function AdminOverride({ currentDay, onClose, onResult }) {
                   disabled={actionInProgress || !actionReason || !adminName}
                   className="force-allow-btn"
                 >
-                  Force Allow Entry (Day {currentDay})
+                  Force Allow Entry
                 </button>
                 <button
                   onClick={handleResetEntry}
                   disabled={actionInProgress || !actionReason || !adminName}
                   className="reset-entry-btn"
                 >
-                  Reset Entry (Day {currentDay})
+                  Reset Entry
                 </button>
               </div>
             </div>
